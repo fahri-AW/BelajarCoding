@@ -1,0 +1,356 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Math Battle Arena</title>
+    <style>
+        /* Modern UI with Glassmorphism */
+        body {
+            font-family: 'Arial', sans-serif;
+            background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+            margin: 0;
+            padding: 0;
+            display: flex;
+            justify-content: center;
+            align-items: center;
+            height: 100vh;
+            overflow: hidden;
+        }
+        .container {
+            background: rgba(255, 255, 255, 0.1);
+            backdrop-filter: blur(10px);
+            border-radius: 20px;
+            padding: 20px;
+            box-shadow: 0 8px 32px rgba(0, 0, 0, 0.3);
+            max-width: 800px;
+            width: 100%;
+            text-align: center;
+            color: white;
+        }
+        h1 {
+            margin-bottom: 20px;
+            font-size: 2.5em;
+        }
+        .menu {
+            display: flex;
+            flex-direction: column;
+            gap: 15px;
+        }
+        button {
+            background: rgba(255, 255, 255, 0.2);
+            border: none;
+            padding: 15px;
+            border-radius: 10px;
+            color: white;
+            font-size: 1.2em;
+            cursor: pointer;
+            transition: all 0.3s ease;
+        }
+        button:hover {
+            background: rgba(255, 255, 255, 0.3);
+            transform: scale(1.05);
+        }
+        .game-area {
+            display: none;
+            flex-direction: column;
+            align-items: center;
+        }
+        .question {
+            font-size: 2em;
+            margin: 20px 0;
+        }
+        .options {
+            display: flex;
+            gap: 10px;
+            flex-wrap: wrap;
+            justify-content: center;
+        }
+        .option {
+            background: rgba(255, 255, 255, 0.2);
+            border: none;
+            padding: 10px 20px;
+            border-radius: 10px;
+            color: white;
+            font-size: 1.5em;
+            cursor: pointer;
+            transition: all 0.3s ease;
+        }
+        .option:hover {
+            background: rgba(255, 255, 255, 0.3);
+        }
+        .score {
+            font-size: 1.5em;
+            margin: 10px 0;
+        }
+        .combo {
+            font-size: 1.2em;
+            color: #ffeb3b;
+            animation: pulse 0.5s infinite;
+        }
+        @keyframes pulse {
+            0% { transform: scale(1); }
+            50% { transform: scale(1.1); }
+            100% { transform: scale(1); }
+        }
+        .tug-of-war {
+            width: 100%;
+            height: 50px;
+            background: linear-gradient(to right, #4caf50 50%, #f44336 50%);
+            border-radius: 25px;
+            position: relative;
+            margin: 20px 0;
+        }
+        .tug-indicator {
+            position: absolute;
+            top: 0;
+            left: 50%;
+            width: 10px;
+            height: 100%;
+            background: white;
+            border-radius: 5px;
+            transition: left 0.5s ease;
+        }
+        .timer {
+            font-size: 1.5em;
+            margin: 10px 0;
+        }
+        .fever-mode {
+            background: rgba(255, 215, 0, 0.5);
+            animation: fever 1s infinite;
+        }
+        @keyframes fever {
+            0% { opacity: 1; }
+            50% { opacity: 0.5; }
+            100% { opacity: 1; }
+        }
+        @media (max-width: 600px) {
+            .container {
+                padding: 10px;
+            }
+            h1 {
+                font-size: 2em;
+            }
+            .question {
+                font-size: 1.5em;
+            }
+            .option {
+                padding: 8px 15px;
+                font-size: 1.2em;
+            }
+        }
+    </style>
+</head>
+<body>
+    <div class="container">
+        <h1>Math Battle Arena</h1>
+        <div id="menu" class="menu">
+            <button onclick="startGame('tugOfWar')">Tug of War Mode</button>
+            <button onclick="startGame('timeAttack')">Time Attack Mode</button>
+            <select id="difficulty">
+                <option value="easy">Easy</option>
+                <option value="hard">Hard</option>
+                <option value="expert">Expert</option>
+            </select>
+        </div>
+        <div id="game" class="game-area">
+            <div class="score">Score: <span id="score">0</span></div>
+            <div class="combo" id="combo-display" style="display: none;">Combo: <span id="combo">0</span></div>
+            <div class="tug-of-war" id="tug-war" style="display: none;">
+                <div class="tug-indicator" id="tug-indicator"></div>
+            </div>
+            <div class="timer" id="timer" style="display: none;">Time: 90</div>
+            <div class="question" id="question"></div>
+            <div class="options" id="options"></div>
+        </div>
+    </div>
+
+    <script>
+        // Game Class for OOP Structure
+        class MathBattleArena {
+            constructor() {
+                this.score = 0;
+                this.combo = 0;
+                this.feverMode = false;
+                this.mode = '';
+                this.difficulty = 'easy';
+                this.timer = 90;
+                this.timerInterval = null;
+                this.tugPosition = 50; // 0-100, 50 is center
+                this.audioContext = new (window.AudioContext || window.webkitAudioContext)();
+                this.questions = this.generateQuestions();
+                this.currentQuestionIndex = 0;
+            }
+
+            generateQuestions() {
+                const ops = ['+', '-', '*', '/'];
+                const questions = [];
+                for (let i = 0; i < 100; i++) {
+                    const op = ops[Math.floor(Math.random() * ops.length)];
+                    let a, b;
+                    if (this.difficulty === 'easy') {
+                        a = Math.floor(Math.random() * 10) + 1;
+                        b = Math.floor(Math.random() * 10) + 1;
+                    } else if (this.difficulty === 'hard') {
+                        a = Math.floor(Math.random() * 50) + 1;
+                        b = Math.floor(Math.random() * 50) + 1;
+                    } else {
+                        a = Math.floor(Math.random() * 100) + 1;
+                        b = Math.floor(Math.random() * 100) + 1;
+                    }
+                    let answer;
+                    switch (op) {
+                        case '+': answer = a + b; break;
+                        case '-': answer = a - b; break;
+                        case '*': answer = a * b; break;
+                        case '/': answer = Math.round((a / b) * 10) / 10; break; // Round to 1 decimal
+                    }
+                    const options = [answer];
+                    while (options.length < 4) {
+                        const wrong = answer + Math.floor(Math.random() * 20) - 10;
+                        if (!options.includes(wrong) && wrong !== answer) options.push(wrong);
+                    }
+                    options.sort(() => Math.random() - 0.5);
+                    questions.push({ question: `${a} ${op} ${b}`, answer, options });
+                }
+                return questions;
+            }
+
+            start(mode) {
+                this.mode = mode;
+                this.difficulty = document.getElementById('difficulty').value;
+                this.questions = this.generateQuestions();
+                this.currentQuestionIndex = 0;
+                this.score = 0;
+                this.combo = 0;
+                this.feverMode = false;
+                this.tugPosition = 50;
+                document.getElementById('menu').style.display = 'none';
+                document.getElementById('game').style.display = 'flex';
+                if (mode === 'timeAttack') {
+                    document.getElementById('timer').style.display = 'block';
+                    this.startTimer();
+                } else {
+                    document.getElementById('tug-war').style.display = 'block';
+                }
+                this.displayQuestion();
+            }
+
+            displayQuestion() {
+                const q = this.questions[this.currentQuestionIndex];
+                document.getElementById('question').textContent = q.question;
+                const optionsDiv = document.getElementById('options');
+                optionsDiv.innerHTML = '';
+                q.options.forEach(opt => {
+                    const btn = document.createElement('button');
+                    btn.className = 'option';
+                    btn.textContent = opt;
+                    btn.onclick = () => this.checkAnswer(opt === q.answer);
+                    optionsDiv.appendChild(btn);
+                });
+                document.getElementById('score').textContent = this.score;
+                document.getElementById('combo').textContent = this.combo;
+                if (this.feverMode) {
+                    document.body.classList.add('fever-mode');
+                } else {
+                    document.body.classList.remove('fever-mode');
+                }
+            }
+
+            checkAnswer(correct) {
+                if (correct) {
+                    this.score += 10 + this.combo * 5;
+                    this.combo++;
+                    this.playSound('correct');
+                    if (this.combo >= 5) {
+                        this.feverMode = true;
+                        document.getElementById('combo-display').style.display = 'block';
+                    }
+                    if (this.mode === 'tugOfWar') {
+                        this.tugPosition = Math.min(100, this.tugPosition + 5 + this.combo);
+                        document.getElementById('tug-indicator').style.left = `${this.tugPosition}%`;
+                        if (this.tugPosition >= 100) {
+                            this.endGame('You Win!');
+                            return;
+                        }
+                    }
+                } else {
+                    this.combo = 0;
+                    this.feverMode = false;
+                    this.playSound('wrong');
+                    document.getElementById('combo-display').style.display = 'none';
+                    if (this.mode === 'tugOfWar') {
+                        this.tugPosition = Math.max(0, this.tugPosition - 10);
+                        document.getElementById('tug-indicator').style.left = `${this.tugPosition}%`;
+                        if (this.tugPosition <= 0) {
+                            this.endGame('CPU Wins!');
+                            return;
+                        }
+                    }
+                }
+                this.currentQuestionIndex++;
+                if (this.currentQuestionIndex >= this.questions.length) {
+                    this.endGame('Game Over!');
+                } else {
+                    this.displayQuestion();
+                }
+                // CPU move in Tug of War
+                if (this.mode === 'tugOfWar' && correct) {
+                    setTimeout(() => {
+                        const cpuCorrect = Math.random() > 0.3; // 70% chance CPU answers correctly
+                        if (cpuCorrect) {
+                            this.tugPosition = Math.max(0, this.tugPosition - 3);
+                        } else {
+                            this.tugPosition = Math.min(100, this.tugPosition + 2);
+                        }
+                        document.getElementById('tug-indicator').style.left = `${this.tugPosition}%`;
+                        if (this.tugPosition <= 0) {
+                            this.endGame('CPU Wins!');
+                        }
+                    }, 1000);
+                }
+            }
+
+            startTimer() {
+                this.timerInterval = setInterval(() => {
+                    this.timer--;
+                    document.getElementById('timer').textContent = `Time: ${this.timer}`;
+                    if (this.timer <= 0) {
+                        this.endGame('Time Up!');
+                    }
+                }, 1000);
+            }
+
+            endGame(message) {
+                clearInterval(this.timerInterval);
+                alert(message + ` Final Score: ${this.score}`);
+                location.reload(); // Restart game
+            }
+
+            playSound(type) {
+                const oscillator = this.audioContext.createOscillator();
+                const gainNode = this.audioContext.createGain();
+                oscillator.connect(gainNode);
+                gainNode.connect(this.audioContext.destination);
+                if (type === 'correct') {
+                    oscillator.frequency.setValueAtTime(800, this.audioContext.currentTime);
+                    oscillator.frequency.exponentialRampToValueAtTime(1200, this.audioContext.currentTime + 0.2);
+                } else {
+                    oscillator.frequency.setValueAtTime(200, this.audioContext.currentTime);
+                    oscillator.frequency.exponentialRampToValueAtTime(100, this.audioContext.currentTime + 0.2);
+                }
+                gainNode.gain.setValueAtTime(0.1, this.audioContext.currentTime);
+                gainNode.gain.exponentialRampToValueAtTime(0.01, this.audioContext.currentTime + 0.2);
+                oscillator.start();
+                oscillator.stop(this.audioContext.currentTime + 0.2);
+            }
+        }
+
+        const game = new MathBattleArena();
+
+        function startGame(mode) {
+            game.start(mode);
+        }
+    </script>
+</body>
+</html>
